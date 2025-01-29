@@ -130,8 +130,7 @@ for layer in layers_data:
             neuron_population_dict[m_type][me_type_sample] = population_obj
 
 
-def create_populations_connections(pop_args):
-    me_pop1, me_pop2, syn0, connection_prob = pop_args
+def create_populations_connections(me_pop1, me_pop2, syn0, connection_prob):
     # Create connections and inputs
     proj_count = 0
 
@@ -142,7 +141,6 @@ def create_populations_connections(pop_args):
                         synapse=syn0.id,
                     )
 
-    net.projections.append(projection)
     for i in range(me_pop1.size):
         for j in range(me_pop2.size):
             if random.random() <= connection_prob: # probablistic connection...
@@ -156,64 +154,46 @@ def create_populations_connections(pop_args):
                 projection.add(connection)
                 proj_count += 1
     print("\tAdded %i connections from %s to %s" % (proj_count, me1, me2))
+    return projection
 client = Client(n_workers=8)
 
 # %%
-total_connections = []
-for layer in layers_data:
-    layer_dict = layers_data[layer]
-    e_type_counts = layer_dict['No. of neurons per electrical types']
-    m_type_counts = layer_dict['No. of neurons per morphological types']
-    # now go through the connections and create the synapses
-    for i_m1 in range(len(m_type_counts)):
-        m1 = list(m_type_counts.keys())[i_m1]
-        for i_m2 in range(len(m_type_counts)):
-            m2 = list(m_type_counts.keys())[i_m2]
-            m1m2_key = m1 + ":" + m2
-            if m1m2_key in pathways_anatomy_data:
-                print("Creating synapses " + m1m2_key) 
-                syn_anatomy = pathways_anatomy_data[m1m2_key]
-                syn_physiology = pathways_physiology_data[m1m2_key]
+all_projections = []
+for m1m2_key in pathways_anatomy_data:
+    syn_anatomy = pathways_anatomy_data[m1m2_key]
+    syn_physiology = pathways_physiology_data[m1m2_key]
 
-                # count the number of me-type pairs
-                num_me_type_pairs = m_type_counts[m1] * m_type_counts[m2]
-                
-                # number of synapses per me-type pair
-                num_me_synapses = syn_anatomy["total_synapse_count"] / num_me_type_pairs
-                connection_prob = syn_anatomy["connection_probability"]
-                mean_num_syn_per_connection = syn_anatomy["mean_number_of_synapse_per_connection"]
-                std_num_syn_per_connection = syn_anatomy["number_of_synapse_per_connection_std"]
+    m1, m2 = m1m2_key.split(":")
+    connection_prob = syn_anatomy["connection_probability"]
+    decay_mean = syn_physiology["decay_mean"]
 
-                # load physiology data
-                g_syn = syn_physiology["gsyn_mean"]
-                decay_mean = syn_physiology["decay_mean"]
-                synapse_type = syn_physiology["synapse_type"]
-                ei_type, stp_type = synapse_type.split(", ")
+    # simple mono-exponential synapse
+    # <Property name="weight" dimension="none" defaultValue="1"/>
 
+    # <Parameter name="tauDecay" dimension="time" description="Time course of decay"/>
+    # <Parameter name="gbase" dimension="conductance" description="Baseline conductance, generally the maximum conductance following a single spike"/>
+    # <Parameter name="erev" dimension="voltage" description="Reversal potential of the synapse"/>
 
-                # simple mono-exponential synapse
-                # <Property name="weight" dimension="none" defaultValue="1"/>
+    syn0 = nml_doc.add(
+        "ExpOneSynapse", id=m1m2_key.replace(":", "_"), gbase="65nS", erev="0mV", tau_decay= str(decay_mean) + "ms"
+    )
+    #print("me-types:")
+    #print(neuron_population_dict[m1])
+    #print(neuron_population_dict[m2])
+    # for every pair of me-types, create a fraction of the synapses
+    for me1 in neuron_population_dict[m1]:
+        me_pop1 = neuron_population_dict[m1][me1]
+        for me2 in neuron_population_dict[m2]:
+            me_pop2 = neuron_population_dict[m2][me2]
 
-                # <Parameter name="tauDecay" dimension="time" description="Time course of decay"/>
-                # <Parameter name="gbase" dimension="conductance" description="Baseline conductance, generally the maximum conductance following a single spike"/>
-                # <Parameter name="erev" dimension="voltage" description="Reversal potential of the synapse"/>
+            projection = client.submit(create_populations_connections,
+                                                [me_pop1, me_pop2, syn0, connection_prob])
+            all_projections.append(projection)
+#print("Total so far: %i" % total_connections + "\n\n")
+client.gather(all_projections)
+for proj in all_projections:
+    net.projections.append(proj.result())
 
-                syn0 = nml_doc.add(
-                    "ExpOneSynapse", id=m1m2_key.replace(":", "_"), gbase="65nS", erev="0mV", tau_decay= str(decay_mean) + "ms"
-                )
-                #print("me-types:")
-                #print(neuron_population_dict[m1])
-                #print(neuron_population_dict[m2])
-                # for every pair of me-types, create a fraction of the synapses
-                for me1 in neuron_population_dict[m1]:
-                    me_pop1 = neuron_population_dict[m1][me1]
-                    for me2 in neuron_population_dict[m2]:
-                        me_pop2 = neuron_population_dict[m2][me2]
-
-                        proj_count_future = client.submit(create_populations_connections,
-                                                            [me_pop1, me_pop2, syn0, connection_prob])
-                        total_connections.append(proj_count_future)
-            print("Total so far: %i" % total_connections + "\n\n")
 
 
 
