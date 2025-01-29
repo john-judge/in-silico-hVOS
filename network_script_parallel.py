@@ -2,7 +2,7 @@
 from pyneuroml import pynml
 import urllib.request, json 
 #import requests
-import os
+import os, sys
 from neuroml import *
 from neuroml.utils import component_factory, validate_neuroml2
 from pyneuroml import pynml
@@ -19,6 +19,8 @@ pyneuroml.io.read_lems_file
 pyneuroml.io.read_neuroml2_file
 pyneuroml.io.write_lems_file
 pyneuroml.io.write_neuroml2_file'''
+
+n_workers = int(sys.argv[1])
 
 # use the above functions to read LEMS and NeuroML files
 cell_data_dir = os.path.join(Path(os.getcwd()).parent, "NMC_Model/NMC.NeuronML2/")
@@ -155,7 +157,7 @@ def create_populations_connections(me_pop1, me_pop2, syn0, connection_prob):
                 proj_count += 1
     print("\tAdded %i connections from %s to %s" % (proj_count, me1, me2))
     return projection
-client = Client(n_workers=8)
+client = Client(n_workers=n_workers)
 
 # %%
 all_projections = []
