@@ -1,7 +1,7 @@
 # %%
 from pyneuroml import pynml
 import urllib.request, json 
-import requests
+#import requests
 import os
 from neuroml import *
 from neuroml.utils import component_factory, validate_neuroml2
@@ -129,7 +129,7 @@ for layer in layers_data:
 
 
 # %%
-
+total_connections = 0
 for layer in layers_data:
     layer_dict = layers_data[layer]
     e_type_counts = layer_dict['No. of neurons per electrical types']
@@ -203,7 +203,10 @@ for layer in layers_data:
                                     )
                                     projection.add(connection)
                                     proj_count += 1
-                        print("Added %i connections from %s to %s" % (proj_count, me1, me2))
+                        print("\tAdded %i connections from %s to %s" % (proj_count, me1, me2))
+                        total_connections += proj_count
+            print("Total so far: %i" % total_connections + "\n\n")
+
 
 
 # %%
