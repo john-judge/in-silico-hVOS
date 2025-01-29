@@ -23,6 +23,7 @@ pyneuroml.io.write_neuroml2_file'''
 print(os.listdir(Path(os.getcwd()).parent))
 cell_data_dir = os.path.join(Path(os.getcwd()).parent, "NMC_Model/NMC.NeuronML2/")
 network_data_dir = os.path.join(Path(os.getcwd()).parent, "NMC_Model/")  # contains JSONs for network and connectivity data
+print(os.listdir(network_data_dir))
 
 files = os.listdir(cell_data_dir)
 cell_files = [f for f in files if f.endswith("cell.nml")]  # .cell.nml -- contains arborization location details
