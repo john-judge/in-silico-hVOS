@@ -10,7 +10,7 @@ from pyneuroml.lems import LEMSSimulation
 import neuroml.writers as writers
 import random
 from pyneuroml.pynml import read_lems_file, read_neuroml2_file, write_lems_file, write_neuroml2_file
-
+from pathlib import Path
 
 # %%
 '''https://pyneuroml.readthedocs.io/en/development/pyneuroml.io.html
@@ -20,8 +20,9 @@ pyneuroml.io.write_lems_file
 pyneuroml.io.write_neuroml2_file'''
 
 # use the above functions to read LEMS and NeuroML files
-cell_data_dir = "../NMC_Model/NMC.NeuronML2/"
-network_data_dir = "../NMC_Model/"  # contains JSONs for network and connectivity data
+print(Path(os.getcwd()).parent)
+cell_data_dir = os.path.join(Path(os.getcwd()).parent, "NMC_Model/NMC.NeuronML2/")
+network_data_dir = os.path.join(Path(os.getcwd()).parent, "NMC_Model/")  # contains JSONs for network and connectivity data
 
 files = os.listdir(cell_data_dir)
 cell_files = [f for f in files if f.endswith("cell.nml")]  # .cell.nml -- contains arborization location details
