@@ -20,7 +20,6 @@ pyneuroml.io.write_lems_file
 pyneuroml.io.write_neuroml2_file'''
 
 # use the above functions to read LEMS and NeuroML files
-print(os.listdir(Path(os.getcwd()).parent))
 cell_data_dir = os.path.join(Path(os.getcwd()).parent, "NMC_Model/NMC.NeuronML2/")
 network_data_dir = os.path.join(Path(os.getcwd()).parent, "NMC_Model/")  # contains JSONs for network and connectivity data
 print(os.listdir(network_data_dir))
