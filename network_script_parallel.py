@@ -11,7 +11,7 @@ import neuroml.writers as writers
 import random
 from pyneuroml.pynml import read_lems_file, read_neuroml2_file, write_lems_file, write_neuroml2_file
 from pathlib import Path
-import dask
+from dask.distributed import Client
 
 # %%
 '''https://pyneuroml.readthedocs.io/en/development/pyneuroml.io.html
@@ -130,8 +130,36 @@ for layer in layers_data:
             neuron_population_dict[m_type][me_type_sample] = population_obj
 
 
+def create_populations_connections(pop_args):
+    me_pop1, me_pop2, syn0, connection_prob = pop_args
+    # Create connections and inputs
+    proj_count = 0
+
+    projection = Projection(
+                        id="Proj_",
+                        presynaptic_population=me_pop1.id,
+                        postsynaptic_population=me_pop2.id,
+                        synapse=syn0.id,
+                    )
+
+    net.projections.append(projection)
+    for i in range(me_pop1.size):
+        for j in range(me_pop2.size):
+            if random.random() <= connection_prob: # probablistic connection...
+                connection = ConnectionWD(
+                    id=proj_count,
+                    pre_cell_id="%s[%i]" % (me_pop1.id, i),
+                    post_cell_id="%s[%i]" % (me_pop2.id, j),
+                    weight=random.random(),
+                    delay='0ms'
+                )
+                projection.add(connection)
+                proj_count += 1
+    print("\tAdded %i connections from %s to %s" % (proj_count, me1, me2))
+client = Client(n_workers=8)
+
 # %%
-total_connections = 0
+total_connections = []
 for layer in layers_data:
     layer_dict = layers_data[layer]
     e_type_counts = layer_dict['No. of neurons per electrical types']
@@ -182,31 +210,9 @@ for layer in layers_data:
                     for me2 in neuron_population_dict[m2]:
                         me_pop2 = neuron_population_dict[m2][me2]
 
-                        # Create connections and inputs
-                        proj_count = 0
-
-                        projection = Projection(
-                                            id="Proj_",
-                                            presynaptic_population=me_pop1.id,
-                                            postsynaptic_population=me_pop2.id,
-                                            synapse=syn0.id,
-                                        )
-
-                        net.projections.append(projection)
-                        for i in range(me_pop1.size):
-                            for j in range(me_pop2.size):
-                                if random.random() <= connection_prob: # probablistic connection...
-                                    connection = ConnectionWD(
-                                        id=proj_count,
-                                        pre_cell_id="%s[%i]" % (me_pop1.id, i),
-                                        post_cell_id="%s[%i]" % (me_pop2.id, j),
-                                        weight=random.random(),
-                                        delay='0ms'
-                                    )
-                                    projection.add(connection)
-                                    proj_count += 1
-                        print("\tAdded %i connections from %s to %s" % (proj_count, me1, me2))
-                        total_connections += proj_count
+                        proj_count_future = client.submit(create_populations_connections,
+                                                            [me_pop1, me_pop2, syn0, connection_prob])
+                        total_connections.append(proj_count_future)
             print("Total so far: %i" % total_connections + "\n\n")
 
 
