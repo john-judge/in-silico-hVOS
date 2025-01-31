@@ -21,8 +21,8 @@ pyneuroml.io.write_lems_file
 pyneuroml.io.write_neuroml2_file'''
 
 # use the above functions to read LEMS and NeuroML files
-cell_data_dir = "../NMC_model/NMC.NeuronML2/"
-network_data_dir = "../NMC_model/"  # contains JSONs for network and connectivity data
+cell_data_dir = "/NMC_model/NMC.NeuronML2/"
+network_data_dir = "/NMC_model/"  # contains JSONs for network and connectivity data
 
 files = os.listdir(cell_data_dir)
 cell_files = [f for f in files if f.endswith("cell.nml")]  # .cell.nml -- contains arborization location details
