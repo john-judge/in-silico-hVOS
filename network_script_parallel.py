@@ -23,9 +23,8 @@ pyneuroml.io.write_neuroml2_file'''
 n_workers = int(sys.argv[1])
 
 # use the above functions to read LEMS and NeuroML files
-cell_data_dir = os.path.join(Path(os.getcwd()).parent, "NMC_Model/NMC.NeuronML2/")
-network_data_dir = os.path.join(Path(os.getcwd()).parent, "NMC_Model/")  # contains JSONs for network and connectivity data
-print(os.listdir(network_data_dir))
+cell_data_dir = "NMC_model/NMC.NeuronML2/"
+network_data_dir = "NMC_model/"  # contains JSONs for network and connectivity data
 
 files = os.listdir(cell_data_dir)
 cell_files = [f for f in files if f.endswith("cell.nml")]  # .cell.nml -- contains arborization location details
@@ -66,11 +65,18 @@ net.type="networkWithTemperature"
 net.temperature="34.0degC"
 
 neuron_population_dict = {}  # neuron_population_dict[m_type][e_type] = population_object
+microcircuit_volume = circuit_data["Microcircuit volume"]
+microcircuit_thickness = sum(circuit_data["Layer thicknesses"].values())
 
 for layer in layers_data:
     layer_dict = layers_data[layer]
     e_type_counts = layer_dict['No. of neurons per electrical types']
     m_type_counts = layer_dict['No. of neurons per morphological types']
+
+    # layer thickness
+    layer_thickness = circuit_data["Layer thicknesses"][layer]
+    layer_neuron_density = circuit_data["Neuron densities"][layer]
+    layer_neuron_count = circuit_data["No. of neurons per layer"][layer]
 
     for m_type in m_type_counts:
         m_type_cells = [f for f in cell_files if m_type in f]
@@ -121,16 +127,28 @@ for layer in layers_data:
             size_pop1 = me_type_counts[me_type_sample]
             nml_doc.add("IncludeType", href=cell_data_dir + me_type_sample)
 
-            population_obj = component_factory("Population", id="Exc", component=cell_model.id, size=size_pop1, type="population")
+            population_obj = component_factory("Population", id="Exc", component=cell_model.id, size=size_pop1, type="populationList")
+            
             # Set optional color property. Note: used later when generating plots
             ##pop0.add("Property", tag="color", value="0 0 .8")
-            net.add(population_obj, force=True)
+            
+            # set the x,y,z location of the population, based on layer thickness (z), model x,y dimensions, and cell count of this population
+            # place the population at a random x,y location within the layer,
+            #  uniformly distributed according to layer_thickness, layer_neuron_density, and layer_neuron_count
+            xy_avail_area = circuit_data['Layer areas'][layer]
+            x_y_length = np.sqrt(xy_avail_area)
+            z_start_bound = circuit_data['Layer top edges'][layer]
+            z_end_bound = z_start_bound + layer_thickness
+            for i_cell in range(size_pop1):
+                x = random.uniform(0, x_y_length)
+                y = random.uniform(0, x_y_length)
+                z = random.uniform(z_start_bound, z_end_bound)
+                population_obj.add("Instance", id=str(i_cell), location=component_factory("Location", x=x, y=y, z=z))
 
             # add to neuron_population_dict
             if m_type not in neuron_population_dict:
                 neuron_population_dict[m_type] = {}
             neuron_population_dict[m_type][me_type_sample] = population_obj
-
 
 def create_populations_connections(me_pop1, me_pop2, syn0, connection_prob):
     # Create connections and inputs
@@ -201,7 +219,8 @@ for proj in all_projections:
 
 # %%
 # stimulus: L4 spiny stellate neurons (simulating thalamic input) as a pulse generator at 20ms, duration 0.2ms, amplitude on 10^-1 nA scale
-for me_pop in neuron_population_dict["L4_SS"]:
+for me_pop_key in neuron_population_dict["L4_SS"]:
+    me_pop = neuron_population_dict["L4_SS"][me_pop_key]
     for i in range(0, me_pop.size):
         # pulse generator as explicit stimulus
         pg = nml_doc.add(
