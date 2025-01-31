@@ -2,6 +2,7 @@
 from pyneuroml import pynml
 import urllib.request, json 
 #import requests
+import numpy as np
 import os, sys
 from neuroml import *
 from neuroml.utils import component_factory, validate_neuroml2
@@ -54,7 +55,44 @@ with open(network_data_dir + 'pathways_anatomy.json') as f:
     pathways_anatomy_data = json.load(f)  # contains the synapse counts/distributions for each m_type->m_type connection
 with open(network_data_dir + 'pathways_physiology.json') as f:
     pathways_physiology_data = json.load(f)  # contains the synapse properties for each m_type->m_type connection
-layers_data
+
+# lock x-dimension None if xy cross-section is square, otherwise lock x-dim to the specified length
+x_dim_length = 200  # in microns  
+
+# scale down factor for the network
+# number of neurons is scaled down by this factor,
+# neuron density, layer thickness, and connection probability are held constant
+scale_down_factor = 5
+for layer in circuit_data['No. of neurons per layer']:
+    circuit_data['No. of neurons per layer'][layer] = int(circuit_data['No. of neurons per layer'][layer] / scale_down_factor)
+
+# add to the circuit_data the location of the top edge of each layer
+# order is L1, L23, L4, L5, L6
+layer_thicknesses = circuit_data['Layer thicknesses']
+layer_thicknesses['L23'] = layer_thicknesses['L2'] + layer_thicknesses['L3']
+circuit_data['Neuron densities']['L23'] = (circuit_data['Neuron densities']['L2'] + circuit_data['Neuron densities']['L3']) / 2
+circuit_data['Layer top edges'] = {'L1': 0}
+layers = ['L1', 'L23', 'L4', 'L5', 'L6']
+for i_l in range(1, len(layers)):
+    prev_thickness = circuit_data['Layer top edges'][layers[i_l-1]] + layer_thicknesses[layers[i_l-1]]
+    circuit_data['Layer top edges'][layers[i_l]] = prev_thickness
+
+# add to each the layer-specific xy-area: (cell count / neuron density * 1000^3 )/ layer thickness
+circuit_data['Layer areas'] = {}
+circuit_data['x-length'] = {} # in microns
+circuit_data['y-length'] = {} # in microns
+for layer in layers:
+    circuit_data['Layer areas'][layer] = (circuit_data['No. of neurons per layer'][layer] / circuit_data['Neuron densities'][layer] * 1000**3) / layer_thicknesses[layer]
+    if x_dim_length is None:
+        circuit_data['x-length'][layer] = np.sqrt(circuit_data['Layer areas'][layer])
+        circuit_data['y-length'][layer] = circuit_data['x-length'][layer]
+    else:
+        circuit_data['x-length'][layer] = x_dim_length
+        circuit_data['y-length'][layer] = circuit_data['Layer areas'][layer] / x_dim_length
+    
+print([layer + ": " + str(circuit_data['x-length'][layer])[:5] + " x "  + 
+       str(circuit_data['y-length'][layer])[:5] + 
+       ' um' for layer in layers])
 
 # %%
 nml_doc = component_factory("NeuroMLDocument", id="Cortex_Network")
