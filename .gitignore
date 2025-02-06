@@ -3,6 +3,16 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# neuroML / NEURON
+*.xml
+*.nml
+*.hoc
+*.mod
+*.c
+*.o
+test/
+report.txt
+
 # C extensions
 *.so
 
